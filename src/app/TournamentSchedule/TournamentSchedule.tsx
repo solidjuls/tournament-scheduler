@@ -33,6 +33,7 @@ const examplePlayers = Array.from({ length: 30 }, (_, i) => ({ email: `player${i
 
 export default function TournamentScheduler() {
   const [groups, setGroups] = useState<Group[]>([]);
+  const [groupLabels, setGroupLabels] = useState<Record<string, number>>({});
   const [matches, setMatches] = useState<Match[]>([]);
   const [groupSize, setGroupSize] = useState(6);
   const [confirmed, setConfirmed] = useState(false);
@@ -44,6 +45,7 @@ export default function TournamentScheduler() {
   const generateGroups = (players: { email: string }[], groupSize: number) => {
     const shuffled = [...players].sort(() => 0.5 - Math.random());
     const newGroups: Group[] = [];
+    const newLabels: Record<string, number> = {};
     for (let i = 0; i < shuffled.length; i += groupSize) {
       const groupPlayers = shuffled.slice(i, i + groupSize).map(p => ({
         ...p,
@@ -52,33 +54,44 @@ export default function TournamentScheduler() {
         losses: 0,
         ties: 0,
       }));
-      newGroups.push({ id: uuidv4(), players: groupPlayers });
+      const groupId = uuidv4();
+      newGroups.push({ id: groupId, players: groupPlayers });
+      newLabels[groupId] = Math.floor(Math.random() * 1000); // random integer label
     }
     setGroups(newGroups);
+    setGroupLabels(newLabels);
     setConfirmed(false);
     setMatches([]);
   };
 
-  const createSchedule = () => {
-    const newMatches: Match[] = [];
-    const dueDate = new Date();
-    groups.forEach(group => {
-      const players = group.players;
-      for (let i = 0; i < players.length; i++) {
-        for (let j = i + 1; j < players.length; j++) {
-          const matchDue = new Date(dueDate);
-          matchDue.setDate(dueDate.getDate() + (i + j));
-          newMatches.push({
-            player1: players[i].email,
-            player2: players[j].email,
-            dueDate: matchDue.toISOString().split('T')[0],
-          });
-        }
+const createSchedule = () => {
+  const newMatches: Match[] = [];
+  const startDate = new Date();
+
+  groups.forEach(group => {
+    const players = group.players;
+    // // Map player email to their index in the group
+    // const playerIndexMap = new Map(players.map((p, idx) => [p.email, idx]));
+
+    for (let i = 0; i < players.length; i++) {
+      for (let j = i + 1; j < players.length; j++) {
+        // Due date spaced by the max player index * 7 days
+        const maxIndex = Math.max(i, j);
+        const matchDue = new Date(startDate);
+        matchDue.setDate(startDate.getDate() + maxIndex * 7);
+
+        newMatches.push({
+          player1: players[i].email,
+          player2: players[j].email,
+          dueDate: matchDue.toISOString().split('T')[0],
+        });
       }
-    });
-    setMatches(newMatches);
-    setConfirmed(false);
-  };
+    }
+  });
+
+  setMatches(newMatches);
+  setConfirmed(false);
+};
 
   const updateMatchDueDate = (index: number, newDate: string) => {
     if (confirmed) return; // Prevent changes if confirmed
@@ -120,7 +133,13 @@ export default function TournamentScheduler() {
     setConfirmed(true);
   };
 
-return (
+  // Helper: get matches belonging to a group based on players' emails
+  const matchesByGroup = (group: Group) => {
+    const playerEmails = new Set(group.players.map(p => p.email));
+    return matches.filter(m => playerEmails.has(m.player1) && playerEmails.has(m.player2));
+  };
+
+  return (
     <div className="max-w-3xl mx-auto p-4 space-y-6">
       <h1 className="text-2xl font-bold">Tournament Scheduler</h1>
 
@@ -143,28 +162,36 @@ return (
         </button>
       </div>
 
+      {/* Display match schedules grouped by each group */}
       {matches.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-6 space-y-8">
           <h2 className="text-xl font-semibold mb-4">Match Schedule</h2>
-          <ul className="space-y-4">
-            {matches.map((match, index) => (
-              <li key={index} className="p-3 border rounded bg-white shadow">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                  <span>{match.player1} vs {match.player2}</span>
-                  <label className="flex items-center gap-2">
-                    Due Date:
-                    <input
-                      type="date"
-                      value={match.dueDate}
-                      onChange={e => updateMatchDueDate(index, e.target.value)}
-                      className="border p-1 rounded"
-                      disabled={confirmed}
-                    />
-                  </label>
-                </div>
-              </li>
-            ))}
-          </ul>
+          {groups.map(group => (
+            <div key={group.id}>
+              <h3 className="text-lg font-semibold mb-2">
+                Group {groupLabels[group.id]} Schedule
+              </h3>
+              <ul className="space-y-2">
+                {matchesByGroup(group).map((match, index) => (
+                  <li key={index} className="p-3 border rounded bg-white shadow">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      <span>{match.player1} vs {match.player2}</span>
+                      <label className="flex items-center gap-2">
+                        Due Date:
+                        <input
+                          type="date"
+                          value={match.dueDate}
+                          onChange={e => updateMatchDueDate(matches.indexOf(match), e.target.value)}
+                          className="border p-1 rounded"
+                          disabled={confirmed}
+                        />
+                      </label>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
 
@@ -172,7 +199,9 @@ return (
         <div className="space-y-4">
           {groups.map(group => (
             <div key={group.id} className="border p-4 rounded-xl bg-gray-50">
-              <h2 className="font-semibold mb-2">Group</h2>
+              <h2 className="font-semibold mb-2">
+                Group {groupLabels[group.id]}
+              </h2>
               <div className="grid grid-cols-4 gap-4 font-semibold border-b pb-2 mb-2">
                 <div>Player</div>
                 {confirmed && <>
@@ -184,7 +213,7 @@ return (
               <SortableContext items={group.players.map(p => p.id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-2">
                   {group.players.map(player => (
-                    <SortablePlayer key={player.id} player={player} />
+                    <SortablePlayer key={player.id} player={player} confirmed={confirmed} />
                   ))}
                 </div>
               </SortableContext>
@@ -196,11 +225,12 @@ return (
   );
 }
 
-function SortablePlayer({ player }: { player: Player }) {
+function SortablePlayer({ player, confirmed }: { player: Player; confirmed: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: player.id });
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    cursor: confirmed ? 'default' : undefined,
   };
 
   return (
@@ -209,9 +239,16 @@ function SortablePlayer({ player }: { player: Player }) {
       {...attributes}
       {...listeners}
       style={style}
-      className="p-3 border rounded bg-white flex justify-between items-center shadow"
+      className="p-3 border rounded bg-white flex items-center shadow"
     >
-      <span>{player.email}</span>
+      <div className="w-1/2">{player.email}</div>
+      {confirmed && (
+        <>
+          <div className="w-1/6 text-center">{player.wins ?? 0}</div>
+          <div className="w-1/6 text-center">{player.losses ?? 0}</div>
+          <div className="w-1/6 text-center">{player.ties ?? 0}</div>
+        </>
+      )}
     </div>
   );
 }
