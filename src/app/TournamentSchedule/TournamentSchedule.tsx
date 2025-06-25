@@ -13,6 +13,9 @@ import { v4 as uuidv4 } from 'uuid';
 interface Player {
   id: string;
   email: string;
+  wins?: number;
+  losses?: number;
+  ties?: number;
 }
 
 interface Group {
@@ -31,7 +34,8 @@ const examplePlayers = Array.from({ length: 30 }, (_, i) => ({ email: `player${i
 export default function TournamentScheduler() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
-  const [groupSize, setGroupSize] = useState(2);
+  const [groupSize, setGroupSize] = useState(6);
+  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
     generateGroups(examplePlayers, groupSize);
@@ -41,10 +45,18 @@ export default function TournamentScheduler() {
     const shuffled = [...players].sort(() => 0.5 - Math.random());
     const newGroups: Group[] = [];
     for (let i = 0; i < shuffled.length; i += groupSize) {
-      const groupPlayers = shuffled.slice(i, i + groupSize).map(p => ({ ...p, id: uuidv4() }));
+      const groupPlayers = shuffled.slice(i, i + groupSize).map(p => ({
+        ...p,
+        id: uuidv4(),
+        wins: 0,
+        losses: 0,
+        ties: 0,
+      }));
       newGroups.push({ id: uuidv4(), players: groupPlayers });
     }
     setGroups(newGroups);
+    setConfirmed(false);
+    setMatches([]);
   };
 
   const createSchedule = () => {
@@ -65,15 +77,19 @@ export default function TournamentScheduler() {
       }
     });
     setMatches(newMatches);
+    setConfirmed(false);
   };
 
   const updateMatchDueDate = (index: number, newDate: string) => {
+    if (confirmed) return; // Prevent changes if confirmed
     const updatedMatches = [...matches];
     updatedMatches[index].dueDate = newDate;
     setMatches(updatedMatches);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
+    if (confirmed) return; // disable drag when confirmed
+
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
@@ -100,7 +116,11 @@ export default function TournamentScheduler() {
     setGroups(newGroups);
   };
 
-  return (
+  const confirmSchedule = () => {
+    setConfirmed(true);
+  };
+
+return (
     <div className="max-w-3xl mx-auto p-4 space-y-6">
       <h1 className="text-2xl font-bold">Tournament Scheduler</h1>
 
@@ -110,31 +130,18 @@ export default function TournamentScheduler() {
           value={groupSize}
           onChange={e => setGroupSize(Number(e.target.value))}
           className="w-24 p-2 border rounded"
+          disabled={confirmed}
         />
-        <button onClick={() => generateGroups(examplePlayers, groupSize)} className="px-4 py-2 bg-blue-500 text-white rounded">
+        <button onClick={() => generateGroups(examplePlayers, groupSize)} className="px-4 py-2 bg-blue-500 text-white rounded" disabled={confirmed}>
           Regenerate Groups
         </button>
-        <button onClick={createSchedule} className="px-4 py-2 bg-green-500 text-white rounded">
+        <button onClick={createSchedule} className="px-4 py-2 bg-green-500 text-white rounded" disabled={confirmed}>
           Create Match Schedule
         </button>
+        <button onClick={confirmSchedule} className="px-4 py-2 bg-red-600 text-white rounded" disabled={confirmed || matches.length === 0}>
+          Confirm Schedule
+        </button>
       </div>
-
-      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="space-y-4">
-          {groups.map(group => (
-            <div key={group.id} className="border p-4 rounded-xl bg-gray-50">
-              <h2 className="font-semibold mb-2">Group</h2>
-              <SortableContext items={group.players.map(p => p.id)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-2">
-                  {group.players.map(player => (
-                    <SortablePlayer key={player.id} player={player} />
-                  ))}
-                </div>
-              </SortableContext>
-            </div>
-          ))}
-        </div>
-      </DndContext>
 
       {matches.length > 0 && (
         <div className="mt-6">
@@ -151,6 +158,7 @@ export default function TournamentScheduler() {
                       value={match.dueDate}
                       onChange={e => updateMatchDueDate(index, e.target.value)}
                       className="border p-1 rounded"
+                      disabled={confirmed}
                     />
                   </label>
                 </div>
@@ -159,6 +167,31 @@ export default function TournamentScheduler() {
           </ul>
         </div>
       )}
+
+      <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <div className="space-y-4">
+          {groups.map(group => (
+            <div key={group.id} className="border p-4 rounded-xl bg-gray-50">
+              <h2 className="font-semibold mb-2">Group</h2>
+              <div className="grid grid-cols-4 gap-4 font-semibold border-b pb-2 mb-2">
+                <div>Player</div>
+                {confirmed && <>
+                  <div>Wins</div>
+                  <div>Losses</div>
+                  <div>Ties</div>
+                </>}
+              </div>
+              <SortableContext items={group.players.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {group.players.map(player => (
+                    <SortablePlayer key={player.id} player={player} />
+                  ))}
+                </div>
+              </SortableContext>
+            </div>
+          ))}
+        </div>
+      </DndContext>
     </div>
   );
 }
