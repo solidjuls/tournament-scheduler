@@ -29,7 +29,32 @@ interface Match {
   dueDate: string;
 }
 
-const examplePlayers = Array.from({ length: 30 }, (_, i) => ({ email: `player${i + 1}@example.com` }));
+const examplePlayers = [
+    {email: 'markeloboe@gmail.com'},
+{email: 'luisrookie@hotmail.com'},
+{email: 'carlospintado1982@gmail.com'},
+{email: 'rodrigolaso_2@hotmail.com'},
+{email: 'xandrepuig8@gmail.com'},
+
+{email: 'anitwilightplay@gmail.com'},
+{email: 'jaoct3@gmail.com'},
+{email: 'hammermig@hotmail.com'},
+{email: 'patxosans@gmail.com'},
+{email: 'isidroararoyo@gmail.com'},
+{email: 'eduardosans@hotmail.com'},
+{email: 'pablovoinot@gmail.com'},
+{email: 'jtamarit78@gmail.com'},
+{email: 'fernandomurciano@gmail.com'},
+{email: 'marcnunoespinosa@gmail.com'},
+{email: 'toni.cebrian@gmail.com'},
+{email: 'eneko.candal@gmail.com'},
+{email: 'bidart.larrakoetxea@opendeusto.es'},
+{email: 'jaribflores@gmail.com'},
+{email: 'gcorcuera@gmail.com'},
+{email: 'yiribon@gmail.com'},
+{email: 'juanggomez91@gmail.com'},
+{email: 'javicoca1@hotmail.com'},
+]
 
 export default function TournamentScheduler() {
   const [groups, setGroups] = useState<Group[]>([]);
@@ -196,9 +221,9 @@ const createSchedule = () => {
       )}
 
       <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <div className="space-y-4">
+        <div className="flex flex-wrap gap-4">
           {groups.map(group => (
-            <div key={group.id} className="border p-4 rounded-xl bg-gray-50">
+            <div key={group.id} className="border p-2 rounded-md bg-gray-50 text-sm w-60">
               <h2 className="font-semibold mb-2">
                 Group {groupLabels[group.id]}
               </h2>
@@ -239,7 +264,7 @@ function SortablePlayer({ player, confirmed }: { player: Player; confirmed: bool
       {...attributes}
       {...listeners}
       style={style}
-      className="p-3 border rounded bg-white flex items-center shadow"
+      className="p-2 border rounded bg-white flex justify-between items-center text-sm"
     >
       <div className="w-1/2">{player.email}</div>
       {confirmed && (
